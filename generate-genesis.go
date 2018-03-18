@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"runtime/pprof"
 	"strconv"
 
 	"golang.org/x/crypto/scrypt"
@@ -19,6 +20,8 @@ var (
 	pubkey           string
 	timestamp, nonce uint
 	bits             string
+	profile          string
+	threads          int
 )
 
 func init() {
@@ -29,6 +32,8 @@ func init() {
 	flag.UintVar(&timestamp, "timestamp", 1231006505, "Timestamp to use")
 	flag.UintVar(&nonce, "nonce", 2083236893, "Nonce value")
 	flag.StringVar(&bits, "bits", "1d00ffff", "Bits")
+	flag.StringVar(&profile, "profile", "", "Write profile information into file (debug)")
+	flag.IntVar(&threads, "threads", 4, "Number of threads to use")
 }
 
 func ComputeSha256(content []byte) []byte {
@@ -79,53 +84,121 @@ func ComputeTarget(bits uint32) big.Int {
 	return target
 }
 
+type Job struct {
+	StartingNonce uint32
+	MaxNonce      uint32
+	Timestamp     uint32
+}
+
 func main() {
 	flag.Parse()
 
-	var hash []byte
-	var current big.Int
+	if profile != "" {
+		f, err := os.Create(profile)
+		if err != nil {
+			panic(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
 	if psz == "" {
 		fmt.Printf("Require a psz. Please set -psz")
 		os.Exit(1)
 	}
 
+	jobs_num := threads
+	jobs := make(chan Job, jobs_num)
+	results := make(chan bool, jobs_num)
+
+	for i := 0; i < jobs_num; i++ {
+		go SearchWorker(jobs, results)
+	}
+
+	nonce_it := uint(1000)
+
+	for {
+		var res bool
+		if jobs_num > 0 {
+			jobs <- Job{
+				StartingNonce: uint32(nonce),
+				MaxNonce:      uint32(nonce + nonce_it),
+				Timestamp:     uint32(timestamp),
+			}
+			new_nonce := nonce + nonce_it
+			if new_nonce < nonce {
+				timestamp++
+			}
+			nonce = new_nonce
+
+			jobs_num--
+		} else if jobs_num == 0 {
+			// Wait for a job to be completed
+			res = <-results
+			jobs_num++
+		}
+
+		if res {
+			break
+		}
+	}
+}
+
+func SearchWorker(jobs <-chan Job, results chan<- bool) {
+	var hash []byte
+	var current big.Int
+	var found bool
+
 	bits_uint32, err := strconv.ParseUint(bits, 16, 32)
 	if err != nil {
 		panic(err)
 	}
 
-	params := new(GenesisParams)
-	params.Algo = algo
-	params.Psz = psz
-	params.Coins = coins
-	params.Pubkey = pubkey
-	params.Timestamp = uint32(timestamp)
-	params.Nonce = uint32(nonce)
-	params.Bits = uint32(bits_uint32)
+	for job := range jobs {
+		params := new(GenesisParams)
+		params.Algo = algo
+		params.Psz = psz
+		params.Coins = coins
+		params.Pubkey = pubkey
+		params.Timestamp = job.Timestamp
+		params.Nonce = job.StartingNonce
+		params.Bits = uint32(bits_uint32)
 
-	blk := CreateBlock(params)
-	target := ComputeTarget(blk.Bits)
+		blk := CreateBlock(params)
+		target := ComputeTarget(blk.Bits)
 
-	for {
-		switch params.Algo {
-		case "sha256":
-			hash = ComputeSha256(ComputeSha256(blk.Serialize()))
-		case "scrypt":
-			hash = ComputeScrypt(blk.Serialize())
+		for {
+			switch params.Algo {
+			case "sha256":
+				hash = ComputeSha256(ComputeSha256(blk.Serialize()))
+			case "scrypt":
+				hash = ComputeScrypt(blk.Serialize())
+			}
+
+			current.SetBytes(Reverse(hash))
+			if 1 == target.Cmp(&current) {
+				found = true
+				PrintFound(blk, hash, target)
+				break
+			}
+
+			blk.Nonce++
+			if blk.Nonce == job.MaxNonce {
+				break
+			}
 		}
 
-		current.SetBytes(Reverse(hash))
-		if 1 == target.Cmp(&current) {
+		if found == true {
+			results <- true
 			break
 		}
 
-		blk.Nonce++
-		if blk.Nonce == 0x00 {
-			blk.Timestamp++
-		}
+		results <- false
 	}
 
+}
+
+func PrintFound(blk *Block, hash []byte, target big.Int) {
 	fmt.Printf("Ctrl Hash:\t0x%x\n", Reverse(hash))
 	target_hash := make([]byte, 32)
 	copy(target_hash[32-len(target.Bytes()):], target.Bytes())
