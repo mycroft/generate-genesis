@@ -62,6 +62,8 @@ func CreateBlock(params *GenesisParams) *Block {
 	blk.Nonce = params.Nonce
 	blk.Bits = params.Bits
 
+	blk.Txs = append(blk.Txs, tx)
+
 	blk.Hash = ComputeSha256(ComputeSha256(blk.Serialize()))
 
 	return blk
@@ -69,6 +71,5 @@ func CreateBlock(params *GenesisParams) *Block {
 
 // https://en.bitcoin.it/wiki/Block_hashing_algorithm
 func ComputeBlockHash(blk *Block) []byte {
-
 	return ComputeSha256(ComputeSha256(blk.Serialize()))
 }

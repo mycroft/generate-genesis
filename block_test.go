@@ -24,7 +24,7 @@ func CheckHash(t *testing.T, expected string, current []byte) {
 	decoded = Reverse(decoded)
 
 	if !bytes.Equal(decoded, current) {
-		t.Errorf("Invalid hash: 0x%x != 0x%x", decoded, current)
+		t.Errorf("Invalid hash: expected(0x%x)\n\t\t differs current(0x%x)", decoded, current)
 	}
 }
 
@@ -69,6 +69,19 @@ func TestGeneration(t *testing.T) {
 			MerkleRoot: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b",
 			BlockHash:  "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943",
 		},
+		GenesisTest{ // dash
+			Params: GenesisParams{
+				Algo:      "x11",
+				Psz:       "Wired 09/Jan/2014 The Grand Experiment Goes Live: Overstock.com Is Now Accepting Bitcoins",
+				Coins:     50 * 100000000,
+				Pubkey:    "040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9",
+				Timestamp: 1390095618,
+				Nonce:     28917698,
+				Bits:      0x1e0ffff0,
+			},
+			MerkleRoot: "e0028eb9648db56b1ac77cf090b99048a8007e2bb64b68f092c03c7f56a662c7",
+			BlockHash:  "00000ffd590b1485b3caadc19b22e6379c733355108f107a430458cdf3407ab6",
+		},
 	}
 
 	for _, test := range tests {
@@ -77,23 +90,30 @@ func TestGeneration(t *testing.T) {
 
 		blk := CreateBlock(&test.Params)
 
+		if test.Params.Algo == "x11" {
+			hash = ComputeX11(blk.Serialize())
+			CheckHash(t, test.BlockHash, hash)
+		} else {
+			CheckHash(t, test.BlockHash, blk.Hash)
+		}
+
 		CheckHash(t, test.MerkleRoot, blk.MerkleRoot)
-		CheckHash(t, test.BlockHash, blk.Hash)
 
 		// Check difficulty as well
 		target := ComputeTarget(test.Params.Bits)
 
 		switch test.Params.Algo {
-		case "bitcoin":
+		case "sha256":
 			hash = ComputeSha256(ComputeSha256(blk.Serialize()))
 		case "scrypt":
 			hash = ComputeScrypt(blk.Serialize())
+		case "x11":
+			hash = ComputeX11(blk.Serialize())
 		}
 
 		current.SetBytes(Reverse(hash))
 		if 1 != target.Cmp(&current) {
 			t.Error("Target not reached.")
 		}
-
 	}
 }

@@ -37,6 +37,12 @@ func CreateInputScript(psz string) []byte {
 	// psz = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
 	prefix := []byte{0x04, 0xff, 0xff, 0x00, 0x1d, 0x01, 0x04}
 
+	if len(psz) >= 0x4c && len(psz) <= 0xff {
+		prefix = append(prefix, byte(0x4c)) // OP_PUSHDATA1
+	} else if len(psz) > 0xff {
+		panic("Script length is too long")
+	}
+
 	prefix = append(prefix, byte(len(psz)))
 	prefix = append(prefix, []byte(psz)...)
 

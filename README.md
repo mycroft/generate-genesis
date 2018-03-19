@@ -8,7 +8,7 @@ Usage
 $ ./generate-genesis -h
 Usage of ./generate-genesis:
   -algo string
-        Algo to use: sha256, scrypt (default "sha256")
+        Algo to use: sha256, scrypt, x11 (default "sha256")
   -bits string
         Bits (default "1d00ffff")
   -coins uint
@@ -54,4 +54,19 @@ Timestamp:      1317972665
 Pubkey:         040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9
 Coins:          5000000000
 Psz:            'NY Times 05/Oct/2011 Steve Jobs, Apple’s Visionary, Dies at 56'
+```
+
+### Dash (x11)
+
+```shell
+$ ./generate-genesis -algo x11 -bits 1e0ffff0 -coins 5000000000 -psz "Wired 09/Jan/2014 The Grand Experiment Goes Live: Overstock.com Is Now Accepting Bitcoins" -pubkey "040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9" -timestamp 1390095618 -nonce 28917600
+Ctrl Hash:      0x00000ffd590b1485b3caadc19b22e6379c733355108f107a430458cdf3407ab6
+Target:         0x00000ffff0000000000000000000000000000000000000000000000000000000
+Blk Hash:       0x00000ffd590b1485b3caadc19b22e6379c733355108f107a430458cdf3407ab6
+Mkl Hash:       0xe0028eb9648db56b1ac77cf090b99048a8007e2bb64b68f092c03c7f56a662c7
+Nonce:          28917698
+Timestamp:      1390095618
+Pubkey:         040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9
+Coins:          5000000000
+Psz:            'Wired 09/Jan/2014 The Grand Experiment Goes Live: Overstock.com Is Now Accepting Bitcoins'
 ```

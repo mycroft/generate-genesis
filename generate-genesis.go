@@ -10,6 +10,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 
+	x11 "gitlab.com/nitya-sattva/go-x11"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -25,7 +26,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&algo, "algo", "sha256", "Algo to use: sha256, scrypt")
+	flag.StringVar(&algo, "algo", "sha256", "Algo to use: sha256, scrypt, x11")
 	flag.StringVar(&psz, "psz", "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks", "pszTimestamp")
 	flag.Uint64Var(&coins, "coins", uint64(50*100000000), "Number of coins")
 	flag.StringVar(&pubkey, "pubkey", "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f", "Pubkey (required)")
@@ -51,6 +52,16 @@ func ComputeScrypt(content []byte) []byte {
 	}
 
 	return scryptHash
+}
+
+func ComputeX11(content []byte) []byte {
+	out := make([]byte, 32)
+
+	hasher := x11.New()
+	hasher.Hash(content, out)
+
+	return out
+
 }
 
 func Reverse(in []byte) []byte {
@@ -173,6 +184,9 @@ func SearchWorker(jobs <-chan Job, results chan<- bool) {
 				hash = ComputeSha256(ComputeSha256(blk.Serialize()))
 			case "scrypt":
 				hash = ComputeScrypt(blk.Serialize())
+			case "x11":
+				hash = ComputeX11(blk.Serialize())
+				blk.Hash = hash
 			}
 
 			current.SetBytes(Reverse(hash))
