@@ -82,38 +82,49 @@ func TestGeneration(t *testing.T) {
 			MerkleRoot: "e0028eb9648db56b1ac77cf090b99048a8007e2bb64b68f092c03c7f56a662c7",
 			BlockHash:  "00000ffd590b1485b3caadc19b22e6379c733355108f107a430458cdf3407ab6",
 		},
+		GenesisTest{ // pivx
+			Params: GenesisParams{
+				Algo:      "quark",
+				Psz:       "U.S. News & World Report Jan 28 2016 With His Absence, Trump Dominates Another Debate",
+				Coins:     250 * 100000000,
+				Pubkey:    "04c10e83b2703ccf322f7dbd62dd5855ac7c10bd055814ce121ba32607d573b8810c02c0582aed05b4deb9c4b77b26d92428c61256cd42774babea0a073b2ed0c9",
+				Timestamp: 1454124731,
+				Nonce:     8451331,
+				Bits:      0x1e0ffff0,
+			},
+			MerkleRoot: "1b2ef6e2f28be914103a277377ae7729dcd125dfeb8bf97bd5964ba72b6dc39b",
+			BlockHash:  "00000b347ed09c174de45bc2f34bcd4a12f7f09d63d2e49c924cab7d2014dddb",
+		},
 	}
 
 	for _, test := range tests {
 		var current big.Int
-		var hash []byte
 
 		blk := CreateBlock(&test.Params)
 
-		if test.Params.Algo == "x11" {
-			hash = ComputeX11(blk.Serialize())
-			CheckHash(t, test.BlockHash, hash)
-		} else {
-			CheckHash(t, test.BlockHash, blk.Hash)
+		switch test.Params.Algo {
+		case "x11":
+			blk.Hash = ComputeX11(blk.Serialize())
+		case "quark":
+			blk.Hash = ComputeQuark(blk.Serialize())
 		}
 
+		CheckHash(t, test.BlockHash, blk.Hash)
 		CheckHash(t, test.MerkleRoot, blk.MerkleRoot)
 
 		// Check difficulty as well
 		target := ComputeTarget(test.Params.Bits)
 
-		switch test.Params.Algo {
-		case "sha256":
-			hash = ComputeSha256(ComputeSha256(blk.Serialize()))
-		case "scrypt":
-			hash = ComputeScrypt(blk.Serialize())
-		case "x11":
-			hash = ComputeX11(blk.Serialize())
+		// In case of scrypt (litecoin), the check is done against scrypt, but sha256 is the block hash.
+		// Therefore, we need to overwrite the blockhash for the target test.
+		if test.Params.Algo == "scrypt" {
+			blk.Hash = ComputeScrypt(blk.Serialize())
 		}
 
-		current.SetBytes(Reverse(hash))
+		current.SetBytes(Reverse(blk.Hash))
 		if 1 != target.Cmp(&current) {
 			t.Error("Target not reached.")
+			return
 		}
 	}
 }
