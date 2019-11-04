@@ -1,6 +1,21 @@
 Genesis block generator
 =======================
 
+Introduction
+------------
+
+This tool provides a convenient way to generate Genesis block for bitcoin-clone (altcoin) crypto currencies.
+
+
+Build
+-----
+
+```shell
+$ go get -d -v
+$ go build
+$ go test
+```
+
 Usage
 -----
 
@@ -8,17 +23,21 @@ Usage
 $ ./generate-genesis -h
 Usage of ./generate-genesis:
   -algo string
-        Algo to use: sha256, scrypt, x11 (default "sha256")
+        Algo to use: sha256, scrypt, x11, quark (default "sha256")
   -bits string
         Bits (default "1d00ffff")
   -coins uint
         Number of coins (default 5000000000)
   -nonce uint
         Nonce value (default 2083236893)
+  -profile string
+        Write profile information into file (debug)
   -psz string
         pszTimestamp (default "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks")
   -pubkey string
         Pubkey (required) (default "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f")
+  -threads int
+        Number of threads to use (default 4)
   -timestamp uint
         Timestamp to use (default 1231006505)
 ```
