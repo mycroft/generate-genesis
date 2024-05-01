@@ -11,7 +11,8 @@ Build
 -----
 
 ```shell
-$ go get -d -v
+$ go mod init generate-genesis
+$ go mod tidy
 $ go build
 $ go test
 ```
