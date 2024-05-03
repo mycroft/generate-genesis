@@ -33,8 +33,7 @@ type TransactionOutput struct {
 }
 
 func CreateInputScript(psz string) []byte {
-	// psz := "This is BitcoinLove from Canada !!!"
-	// psz = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+	// Signature script (coinbase)
 	prefix := []byte{0x04, 0xff, 0xff, 0x00, 0x1d, 0x01, 0x04}
 
 	if len(psz) >= 0x4c && len(psz) <= 0xff {
@@ -51,8 +50,6 @@ func CreateInputScript(psz string) []byte {
 
 func CreateOutputScript(pubkey_hex string) []byte {
 	var script bytes.Buffer
-
-	// pubkey_hex := "0256a044fb2aa44ed624e12a01b1d6a6430f1e6c94f68c4598b12d143563511d8f"
 
 	decoded_len := hex.DecodedLen(len(pubkey_hex))
 	pubkey_decoded := make([]byte, decoded_len)
@@ -99,6 +96,11 @@ func CreateTransaction(psz string, coins uint64, pubkey_hex string) *Transaction
 	})
 
 	return tx
+}
+
+func (tx *Transaction) ComputeHash() []byte {
+	tx.Hash = ComputeSha256(ComputeSha256(tx.Serialize()))
+	return tx.Hash
 }
 
 func (tx_input *TransactionInput) Serialize() []byte {

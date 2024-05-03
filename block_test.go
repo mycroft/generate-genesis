@@ -100,9 +100,20 @@ func TestGeneration(t *testing.T) {
 	for _, test := range tests {
 		var current big.Int
 
-		blk := CreateBlock(&test.Params)
+		tx := CreateTransaction(
+			test.Params.Psz,
+			test.Params.Coins,
+			test.Params.Pubkey,
+		)
+		tx.ComputeHash()
+
+		blk := CreateBlock(&test.Params, tx)
 
 		switch test.Params.Algo {
+		case "sha256":
+			blk.ComputeHash()
+		case "scrypt":
+			blk.ComputeHash()
 		case "x11":
 			blk.Hash = ComputeX11(blk.Serialize())
 		case "quark":

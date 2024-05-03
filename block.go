@@ -41,22 +41,14 @@ func (blk *Block) Serialize() []byte {
 	return out.Bytes()
 }
 
-func CreateBlock(params *GenesisParams) *Block {
+func CreateBlock(params *GenesisParams, tx *Transaction) *Block {
 	blk := new(Block)
 
-	tx := CreateTransaction(
-		params.Psz,
-		params.Coins,
-		params.Pubkey,
-	)
-
-	tx_hash := ComputeSha256(ComputeSha256(tx.Serialize()))
-	blk.MerkleRoot = tx_hash
-	tx.Hash = tx_hash
+	blk.MerkleRoot = tx.Hash
 
 	blk.VersionNumber = 1
 	blk.PreviousHash = make([]byte, 32)
-	blk.MerkleRoot = tx_hash
+	blk.MerkleRoot = tx.Hash
 
 	blk.Timestamp = params.Timestamp
 	blk.Nonce = params.Nonce
@@ -64,9 +56,11 @@ func CreateBlock(params *GenesisParams) *Block {
 
 	blk.Txs = append(blk.Txs, tx)
 
-	blk.Hash = ComputeSha256(ComputeSha256(blk.Serialize()))
-
 	return blk
+}
+
+func (blk *Block) ComputeHash() {
+	blk.Hash = ComputeSha256(ComputeSha256(blk.Serialize()))
 }
 
 // https://en.bitcoin.it/wiki/Block_hashing_algorithm

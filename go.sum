@@ -1,0 +1,6 @@
+github.com/mycroft/goquarkhash v0.0.0-20180708083435-35950a5747a3 h1:sHiaxaeHRhCFEc2oTjOKhthWlAV6dgNod35/aqSMsMs=
+github.com/mycroft/goquarkhash v0.0.0-20180708083435-35950a5747a3/go.mod h1:iVmOdSa1f4XitqCZmi6Rzr1E14OQsn1vRNXIWekwgAE=
+gitlab.com/nitya-sattva/go-x11 v0.0.0-20161218191547-fe7663eb78fd h1:vo96ljS9/ZiG8SWCmgEbAzU/Eol4xM6MEEEbTRS7V/Q=
+gitlab.com/nitya-sattva/go-x11 v0.0.0-20161218191547-fe7663eb78fd/go.mod h1:0Hgc0AzU3aAodvipSCrgE6Y+HYIjdz/VdShJQhmPC94=
+golang.org/x/crypto v0.22.0 h1:g1v0xeRhjcugydODzvb3mEM9SQ0HGp9s/nh3COQ/C30=
+golang.org/x/crypto v0.22.0/go.mod h1:vr6Su+7cTlO45qkww3VDJlzDn0ctJvRgYbC2NvXHt+M=

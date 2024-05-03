@@ -24,6 +24,7 @@ var (
 	bits             string
 	profile          string
 	threads          int
+	verbose          bool
 )
 
 func init() {
@@ -36,6 +37,7 @@ func init() {
 	flag.StringVar(&bits, "bits", "1d00ffff", "Bits")
 	flag.StringVar(&profile, "profile", "", "Write profile information into file (debug)")
 	flag.IntVar(&threads, "threads", 4, "Number of threads to use")
+	flag.BoolVar(&verbose, "verbose", false, "Show some messages")
 }
 
 func ComputeSha256(content []byte) []byte {
@@ -127,24 +129,26 @@ func main() {
 	results := make(chan bool, jobs_num)
 
 	for i := 0; i < jobs_num; i++ {
-		go SearchWorker(jobs, results)
+		go SearchWorker(i, jobs, results)
 	}
 
-	nonce_it := uint(1000)
+	nonce_current := uint32(nonce)
+	nonce_iterator := uint32(1024000)
 
 	for {
 		var res bool
 		if jobs_num > 0 {
+			next_max_nonce := nonce_current + nonce_iterator
 			jobs <- Job{
-				StartingNonce: uint32(nonce),
-				MaxNonce:      uint32(nonce + nonce_it),
+				StartingNonce: nonce_current,
+				MaxNonce:      next_max_nonce,
 				Timestamp:     uint32(timestamp),
 			}
-			new_nonce := nonce + nonce_it
-			if new_nonce < nonce {
+			if next_max_nonce < nonce_current {
 				timestamp++
+				fmt.Println("nonce was reset. Timestamp is now", timestamp)
 			}
-			nonce = new_nonce
+			nonce_current = next_max_nonce
 
 			jobs_num--
 		} else if jobs_num == 0 {
@@ -159,8 +163,7 @@ func main() {
 	}
 }
 
-func SearchWorker(jobs <-chan Job, results chan<- bool) {
-	var hash []byte
+func SearchWorker(instance int, jobs <-chan Job, results chan<- bool) {
 	var current big.Int
 	var found bool
 
@@ -169,7 +172,18 @@ func SearchWorker(jobs <-chan Job, results chan<- bool) {
 		panic(err)
 	}
 
+	target := ComputeTarget(uint32(bits_uint32))
+
 	for job := range jobs {
+		if verbose {
+			fmt.Printf(
+				"Worker %2d: Nonce: %10d to Nonce: %10d timestamp: %10d\n",
+				instance,
+				job.StartingNonce,
+				job.MaxNonce,
+				job.Timestamp,
+			)
+		}
 		params := new(GenesisParams)
 		params.Algo = algo
 		params.Psz = psz
@@ -179,27 +193,31 @@ func SearchWorker(jobs <-chan Job, results chan<- bool) {
 		params.Nonce = job.StartingNonce
 		params.Bits = uint32(bits_uint32)
 
-		blk := CreateBlock(params)
-		target := ComputeTarget(blk.Bits)
+		tx := CreateTransaction(
+			params.Psz,
+			params.Coins,
+			params.Pubkey,
+		)
+		tx.ComputeHash()
+
+		blk := CreateBlock(params, tx)
 
 		for {
 			switch params.Algo {
 			case "sha256":
-				hash = ComputeSha256(ComputeSha256(blk.Serialize()))
+				blk.ComputeHash()
 			case "scrypt":
-				hash = ComputeScrypt(blk.Serialize())
+				blk.Hash = ComputeScrypt(blk.Serialize())
 			case "x11":
-				hash = ComputeX11(blk.Serialize())
-				blk.Hash = hash
+				blk.Hash = ComputeX11(blk.Serialize())
 			case "quark":
-				hash = quark.QuarkHash(blk.Serialize())
-				blk.Hash = hash
+				blk.Hash = quark.QuarkHash(blk.Serialize())
 			}
 
-			current.SetBytes(Reverse(hash))
+			current.SetBytes(Reverse(blk.Hash))
 			if 1 == target.Cmp(&current) {
 				found = true
-				PrintFound(blk, hash, target)
+				PrintFound(blk, blk.Hash, target)
 				break
 			}
 
