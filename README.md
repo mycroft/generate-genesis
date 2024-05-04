@@ -29,6 +29,8 @@ Usage of ./generate-genesis:
         Bits (default "1d00ffff")
   -coins uint
         Number of coins (default 5000000000)
+  -maxprocs int
+        Number of max CPUs that are simultaneously used
   -nonce uint
         Nonce value (default 2083236893)
   -profile string
@@ -37,10 +39,14 @@ Usage of ./generate-genesis:
         pszTimestamp (default "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks")
   -pubkey string
         Pubkey (required) (default "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f")
-  -threads int
-        Number of threads to use (default 4)
+  -stepsize int
+        Number of hashes computed per worker job (default 1024000)
   -timestamp uint
         Timestamp to use (default 1231006505)
+  -verbose
+        Show some messages
+  -workers int
+        Number of workers (goroutine) to use (if unset, use the CPU numbers)
 ```
 
 Samples

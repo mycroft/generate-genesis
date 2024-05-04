@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"strconv"
 
@@ -16,15 +17,16 @@ import (
 )
 
 var (
-	algo             string
-	psz              string
-	coins            uint64
-	pubkey           string
-	timestamp, nonce uint
-	bits             string
-	profile          string
-	threads          int
-	verbose          bool
+	algo              string
+	psz               string
+	coins             uint64
+	pubkey            string
+	timestamp, nonce  uint
+	bits              string
+	profile           string
+	maxprocs, workers int
+	stepsize          int
+	verbose           bool
 )
 
 func init() {
@@ -36,7 +38,9 @@ func init() {
 	flag.UintVar(&nonce, "nonce", 2083236893, "Nonce value")
 	flag.StringVar(&bits, "bits", "1d00ffff", "Bits")
 	flag.StringVar(&profile, "profile", "", "Write profile information into file (debug)")
-	flag.IntVar(&threads, "threads", 4, "Number of threads to use")
+	flag.IntVar(&workers, "workers", 0, "Number of workers (goroutine) to use (if unset, use the CPU numbers)")
+	flag.IntVar(&maxprocs, "maxprocs", 0, "Number of max CPUs that are simultaneously used")
+	flag.IntVar(&stepsize, "stepsize", 1024*1000, "Number of hashes computed per worker job")
 	flag.BoolVar(&verbose, "verbose", false, "Show some messages")
 }
 
@@ -119,12 +123,20 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	if 0 != maxprocs {
+		runtime.GOMAXPROCS(maxprocs)
+	}
+
 	if psz == "" {
 		fmt.Printf("Require a psz. Please set -psz")
 		os.Exit(1)
 	}
 
-	jobs_num := threads
+	jobs_num := runtime.NumCPU()
+	if workers != 0 {
+		jobs_num = workers
+	}
+
 	jobs := make(chan Job, jobs_num)
 	results := make(chan bool, jobs_num)
 
@@ -133,7 +145,7 @@ func main() {
 	}
 
 	nonce_current := uint32(nonce)
-	nonce_iterator := uint32(1024000)
+	nonce_iterator := uint32(stepsize)
 
 	for {
 		var res bool
