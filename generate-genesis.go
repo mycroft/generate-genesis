@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"math/big"
@@ -28,6 +29,9 @@ var (
 	maxprocs, workers int
 	stepsize          int
 	verbose           bool
+
+	// Parsed from bits by validateFlags, read by the workers.
+	bits_value uint32
 )
 
 // Algos accepted by -algo. Every entry must be handled by the switch in SearchWorker.
@@ -111,6 +115,13 @@ type GenesisParams struct {
 func ComputeTarget(bits uint32) big.Int {
 	var target big.Int
 
+	// Below 4 the mantissa does not fit the target, and above 32 the target exceeds
+	// 2^256, which every possible hash would satisfy. validateFlags rejects both for
+	// the CLI; this guards the other callers.
+	if exponent := bits >> 24; exponent < 4 || exponent > 32 {
+		panic(fmt.Sprintf("bits exponent %d is out of the [4, 32] range", exponent))
+	}
+
 	target_bytes := make([]byte, bits>>24)
 	binary.BigEndian.PutUint32(target_bytes, uint32(bits%(1<<24)<<8))
 
@@ -125,8 +136,54 @@ type Job struct {
 	Timestamp     uint32
 }
 
+// validateFlags checks every flag that would otherwise panic or hang deeper in the
+// pipeline. It also decodes bits into bits_value for the workers.
+func validateFlags() error {
+	if psz == "" {
+		return fmt.Errorf("require a psz. Please set -psz")
+	}
+
+	if !IsKnownAlgo(algo) {
+		return fmt.Errorf("unknown algo '%s'. Please set -algo to one of: %s", algo, strings.Join(algos, ", "))
+	}
+
+	parsed_bits, err := strconv.ParseUint(bits, 16, 32)
+	if err != nil {
+		return fmt.Errorf("invalid bits '%s': expected a 32 bit hexadecimal value, eg 1d00ffff", bits)
+	}
+
+	if exponent := parsed_bits >> 24; exponent < 4 || exponent > 32 {
+		return fmt.Errorf("invalid bits '%s': exponent (high byte) is %d, expected between 4 and 32", bits, exponent)
+	}
+
+	bits_value = uint32(parsed_bits)
+
+	if _, err := hex.DecodeString(pubkey); err != nil {
+		return fmt.Errorf("invalid pubkey: expected a hexadecimal ecdsa key: %s", err)
+	}
+
+	if stepsize <= 0 {
+		return fmt.Errorf("invalid stepsize %d: expected greater than 0", stepsize)
+	}
+
+	if workers < 0 {
+		return fmt.Errorf("invalid workers %d: expected 0 (use the CPU count) or greater", workers)
+	}
+
+	if maxprocs < 0 {
+		return fmt.Errorf("invalid maxprocs %d: expected 0 (use the default) or greater", maxprocs)
+	}
+
+	return nil
+}
+
 func main() {
 	flag.Parse()
+
+	if err := validateFlags(); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
 
 	if profile != "" {
 		f, err := os.Create(profile)
@@ -139,16 +196,6 @@ func main() {
 
 	if 0 != maxprocs {
 		runtime.GOMAXPROCS(maxprocs)
-	}
-
-	if psz == "" {
-		fmt.Printf("Require a psz. Please set -psz")
-		os.Exit(1)
-	}
-
-	if !IsKnownAlgo(algo) {
-		fmt.Printf("Unknown algo '%s'. Please set -algo to one of: %s\n", algo, strings.Join(algos, ", "))
-		os.Exit(1)
 	}
 
 	jobs_num := runtime.NumCPU()
@@ -198,12 +245,7 @@ func SearchWorker(instance int, jobs <-chan Job, results chan<- bool) {
 	var current big.Int
 	var found bool
 
-	bits_uint32, err := strconv.ParseUint(bits, 16, 32)
-	if err != nil {
-		panic(err)
-	}
-
-	target := ComputeTarget(uint32(bits_uint32))
+	target := ComputeTarget(bits_value)
 
 	for job := range jobs {
 		if verbose {
@@ -222,7 +264,7 @@ func SearchWorker(instance int, jobs <-chan Job, results chan<- bool) {
 		params.Pubkey = pubkey
 		params.Timestamp = job.Timestamp
 		params.Nonce = job.StartingNonce
-		params.Bits = uint32(bits_uint32)
+		params.Bits = bits_value
 
 		tx := CreateTransaction(
 			params.Psz,
