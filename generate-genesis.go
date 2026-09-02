@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strconv"
+	"strings"
 
 	quark "github.com/mycroft/goquarkhash"
 	x11 "gitlab.com/nitya-sattva/go-x11"
@@ -29,8 +30,21 @@ var (
 	verbose           bool
 )
 
+// Algos accepted by -algo. Every entry must be handled by the switch in SearchWorker.
+var algos = []string{"sha256", "scrypt", "x11", "quark"}
+
+func IsKnownAlgo(algo string) bool {
+	for _, known := range algos {
+		if algo == known {
+			return true
+		}
+	}
+
+	return false
+}
+
 func init() {
-	flag.StringVar(&algo, "algo", "sha256", "Algo to use: sha256, scrypt, x11, quark")
+	flag.StringVar(&algo, "algo", "sha256", fmt.Sprintf("Algo to use: %s", strings.Join(algos, ", ")))
 	flag.StringVar(&psz, "psz", "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks", "pszTimestamp")
 	flag.Uint64Var(&coins, "coins", uint64(50*100000000), "Number of coins")
 	flag.StringVar(&pubkey, "pubkey", "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f", "Pubkey (required)")
@@ -132,6 +146,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if !IsKnownAlgo(algo) {
+		fmt.Printf("Unknown algo '%s'. Please set -algo to one of: %s\n", algo, strings.Join(algos, ", "))
+		os.Exit(1)
+	}
+
 	jobs_num := runtime.NumCPU()
 	if workers != 0 {
 		jobs_num = workers
@@ -224,6 +243,11 @@ func SearchWorker(instance int, jobs <-chan Job, results chan<- bool) {
 				blk.Hash = ComputeX11(blk.Serialize())
 			case "quark":
 				blk.Hash = quark.QuarkHash(blk.Serialize())
+			default:
+				// Unreachable: main validates -algo. Guards against an algo
+				// being added to algos but not here, which would otherwise
+				// leave blk.Hash nil and report a bogus block as found.
+				panic(fmt.Sprintf("algo '%s' is not implemented in SearchWorker", params.Algo))
 			}
 
 			current.SetBytes(Reverse(blk.Hash))
