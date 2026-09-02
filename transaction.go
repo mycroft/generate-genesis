@@ -8,7 +8,6 @@ import (
 )
 
 type Transaction struct {
-	Size          uint32
 	Hash          []byte
 	VersionNumber uint32
 	InputCount    int

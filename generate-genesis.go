@@ -112,7 +112,7 @@ type GenesisParams struct {
 	Bits      uint32
 }
 
-func ComputeTarget(bits uint32) big.Int {
+func ComputeTarget(bits uint32) *big.Int {
 	var target big.Int
 
 	// Below 4 the mantissa does not fit the target, and above 32 the target exceeds
@@ -127,7 +127,7 @@ func ComputeTarget(bits uint32) big.Int {
 
 	target.SetBytes(target_bytes)
 
-	return target
+	return &target
 }
 
 type Job struct {
@@ -217,15 +217,27 @@ func main() {
 		var res bool
 		if jobs_num > 0 {
 			next_max_nonce := nonce_current + nonce_iterator
+			wrapped := next_max_nonce < nonce_current
+
+			if wrapped {
+				// Clamp the job to the end of the nonce space: MaxNonce 0 is
+				// where the worker's counter lands after 0xffffffff. Without
+				// the clamp, [0, next_max_nonce) would be searched at the old
+				// timestamp and then skipped at the new one.
+				next_max_nonce = 0
+			}
+
 			jobs <- Job{
 				StartingNonce: nonce_current,
 				MaxNonce:      next_max_nonce,
 				Timestamp:     uint32(timestamp),
 			}
-			if next_max_nonce < nonce_current {
+
+			if wrapped {
 				timestamp++
 				fmt.Println("nonce was reset. Timestamp is now", timestamp)
 			}
+
 			nonce_current = next_max_nonce
 
 			jobs_num--
@@ -315,7 +327,7 @@ func SearchWorker(instance int, jobs <-chan Job, results chan<- bool) {
 
 }
 
-func PrintFound(blk *Block, hash []byte, target big.Int) {
+func PrintFound(blk *Block, hash []byte, target *big.Int) {
 	fmt.Printf("Ctrl Hash:\t0x%x\n", Reverse(hash))
 	target_hash := make([]byte, 32)
 	copy(target_hash[32-len(target.Bytes()):], target.Bytes())

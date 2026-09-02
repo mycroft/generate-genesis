@@ -13,9 +13,7 @@ type Block struct {
 	Timestamp     uint32
 	Bits          uint32
 	Nonce         uint32
-	TxCount       int
 	Txs           []*Transaction
-	Size          int64
 }
 
 func (blk *Block) Serialize() []byte {
@@ -44,8 +42,6 @@ func (blk *Block) Serialize() []byte {
 func CreateBlock(params *GenesisParams, tx *Transaction) *Block {
 	blk := new(Block)
 
-	blk.MerkleRoot = tx.Hash
-
 	blk.VersionNumber = 1
 	blk.PreviousHash = make([]byte, 32)
 	blk.MerkleRoot = tx.Hash
@@ -61,9 +57,4 @@ func CreateBlock(params *GenesisParams, tx *Transaction) *Block {
 
 func (blk *Block) ComputeHash() {
 	blk.Hash = ComputeSha256(ComputeSha256(blk.Serialize()))
-}
-
-// https://en.bitcoin.it/wiki/Block_hashing_algorithm
-func ComputeBlockHash(blk *Block) []byte {
-	return ComputeSha256(ComputeSha256(blk.Serialize()))
 }
